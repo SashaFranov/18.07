@@ -8,11 +8,7 @@ use app\models\UsersModel;
 
 class UserController extends InitController
 {
-    public function actionProfile()
-    {
-        echo "Страница профиля";
-        var_dump($this->route);
-    }
+
 
     public function behaviors()
     {
@@ -21,8 +17,15 @@ class UserController extends InitController
                 'rules' => [
                     [
                         'actions' => ['login', 'registration'],
-                        'roles' => [UserOperations::RoleGuest],
+                        'roles' => [UserOperations::RoleGuest, UserOperations::RoleAdmin],
                         'matchCallbak' => function () {
+                            $this->redirect('/user/profile');
+                        }
+                    ],
+                    [
+                        'actions' => ['users'],
+                        'roles' => [UserOperations::RoleAdmin],
+                        'matchCallback' =>function() {
                             $this->redirect('/user/profile');
                         }
                     ]
@@ -65,6 +68,78 @@ class UserController extends InitController
         }
         $this->render('registration', [
             'error_message' => $error_message
+        ]);
+    }
+
+    public function actionlogin()
+    {
+        $this->view->title = 'Австоризация';
+        $error_message = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['btn_login_form'])) {
+            $login = !empty($_POST['login']) ? $_POST['login'] : null;
+            $password = !empty($_POST['password']) ? $_POST['password'] : null;
+
+            $userModel = new UsersModel();
+            $result_auth = $userModel->authByLogin($login, $password);
+            if ($result_auth['result']) {
+                $this->redirect('/user/profile');
+            } else {
+                $error_message = $result_auth['error_message'];
+            }
+        }
+        $this->render('login', [
+            'error_message' => $error_message
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function actionLogout()
+    {
+        if (isset($_SESSION['user']['id'])) {
+            unset($_SESSION['user']);
+        }
+        $params = require 'app/config/params.php';
+        $this->redirect('/'. $params['defaultController'] . '/' . $params['defaultAction']);
+    }
+
+    public function actionProfile()
+    {
+        $this->view->title = 'Мой профиль';
+        $error_message = "";
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST ['btn_change_password_form'])) {
+            $current_password = !empty($_POST['current_password']) ? $_POST['current_password'] : nUll;
+            $new_password = !empty ($_POST ['new_password']) ? $_POST['new_password'] : null;
+            $confirm_new_password = !empty ($_POST['confirm_new_password']) ? $_POST['confirm_new_password'] : null;
+
+            $userModel = new UsersModel();
+            $result_auth = $userModel->changePasswordByCurrentPassword(
+                $current_password, $new_password, $confirm_new_password
+            );
+            if ($result_auth['result']) {
+                $this->redirect('/user/profile');
+            } else {
+                $error_message = $result_auth['error_message'];
+            }
+        }
+
+        $this->render('profile', [
+            'sidebar' => UserOperations::getMenulinks(),
+            'error_message' => $error_message
+        ]);
+    }
+    public function actionUsers()
+    {
+        $this->view->title = 'Пользователи';
+
+        $users = $user_model = new UsersModel();
+        $users = $user_model->getlistUsers();
+
+        $this->render('users', [
+            'sidebar' => UserOperations::getMenulinks(),
+            'users' => $users,
+            'role' => UserOperations::getRoleUser(),
         ]);
     }
 }
